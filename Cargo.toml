@@ -1,0 +1,18 @@
+[package]
+name = "imagehash"
+description = "image hashing library"
+version = "0.1.0"
+license = "Apache-2.0"
+authors = ["Shun Takebayashi"]
+edition = "2021"
+repository = "https://github.com/takebayashi/imagehash-rs"
+readme = "README.md"
+keywords = ["image", "hash"]
+categories = ["multimedia::images", "algorithms"]
+rust-version = "1.61.0"
+
+[dependencies]
+image = { version = "0.24.7", default-features = false }
+
+[dev-dependencies]
+image = { version = "0.24.7", features = ["jpeg"], default-features = false }
