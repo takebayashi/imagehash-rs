@@ -47,6 +47,16 @@ pub struct AverageHash<'a> {
 }
 
 impl<'a> AverageHash<'a> {
+    /// Creates a new `AverageHasher` with default parameters.
+    pub fn new() -> Self {
+        AverageHash::default()
+    }
+
+    /// Creates a new `AverageHasher` with the specified parameters.
+    pub fn with_op(op: &'a ImageOp) -> Self {
+        AverageHash { op }
+    }
+
     /// Calculates average hash (aHash) of the image and returns as a hex string.
     pub fn hash(&self, image: &image::DynamicImage) -> String {
         let bits = average_hash(image, self.op);
