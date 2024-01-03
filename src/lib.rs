@@ -79,20 +79,18 @@ pub fn average_hash(image: &image::DynamicImage, op: &ImageOp) -> Vec<bool> {
 }
 
 fn bits_to_bytes(bits: &[bool]) -> Vec<u8> {
-    let mut bytes = Vec::new();
-    for i in 0..(bits.len() / 8) {
-        let mut byte = 0;
-        for j in 0..8_usize {
-            byte |= (bits[i * 8 + j] as u8) << (7 - j);
+    let mut bytes = vec![0; (bits.len() + 7) / 8];
+    for (i, bit) in bits.iter().enumerate() {
+        if *bit {
+            bytes[i / 8] |= 1 << (7 - (i % 8));
         }
-        bytes.push(byte);
     }
     bytes
 }
 
 fn bytes_to_hex(bytes: &[u8]) -> String {
-    let mut result = String::new();
-    for byte in bytes {
+    let mut result = String::with_capacity(bytes.len() * 2);
+    for &byte in bytes {
         result.push_str(&format!("{:02x}", byte));
     }
     result
