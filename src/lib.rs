@@ -17,6 +17,7 @@
 //! ## Supported Algorithms
 //!
 //! - Average Hash (aHash)
+//! - Difference Hash (dHash)
 //!
 //! ## Usage
 //!
@@ -86,6 +87,60 @@ pub fn average_hash(image: &image::DynamicImage, op: &ImageOp) -> Vec<bool> {
     let pixels = preprocessed.into_luma8().into_raw();
     let average = pixels.iter().map(|i| u16::from(*i)).sum::<u16>() / (op.width * op.height) as u16;
     pixels.iter().map(|&v| v as u16 > average).collect()
+}
+
+/// Provides difference hash (dHash) calculation.
+pub struct DifferenceHash<'a> {
+    op: &'a ImageOp,
+}
+
+impl<'a> DifferenceHash<'a> {
+    /// Creates a new `DifferenceHasher` with default parameters.
+    pub fn new() -> Self {
+        DifferenceHash::default()
+    }
+
+    /// Creates a new `DifferenceHasher` with the specified parameters.
+    pub fn with_op(op: &'a ImageOp) -> Self {
+        DifferenceHash { op }
+    }
+
+    /// Calculates difference hash (dHash) of the image and returns as a hex string.
+    pub fn hash(&self, image: &image::DynamicImage) -> String {
+        let bits = difference_hash(image, self.op);
+        let bytes = bits_to_bytes(&bits);
+        bytes_to_hex(&bytes)
+    }
+}
+
+impl Default for DifferenceHash<'_> {
+    /// Creates a new `DifferenceHasher` with default parameters.
+    fn default() -> Self {
+        DifferenceHash {
+            op: &ImageOp {
+                width: 9,
+                height: 8,
+                filter: FilterType::Lanczos3,
+            },
+        }
+    }
+}
+
+/// Calculates difference hash (dHash) of the image.
+pub fn difference_hash(image: &image::DynamicImage, op: &ImageOp) -> Vec<bool> {
+    let preprocessed = image
+        .grayscale()
+        .resize_exact(op.width as u32, op.height as u32, op.filter);
+    let pixels = preprocessed.into_luma8().into_raw();
+    let mut bits = vec![false; ((op.width - 1) * op.height) as usize];
+    for y in 0..op.height {
+        for x in 0..op.width - 1 {
+            let offset_p = (y * op.width + x) as usize;
+            let offset_b = (y * (op.width - 1) + x) as usize;
+            bits[offset_b] = pixels[offset_p + 1] > pixels[offset_p];
+        }
+    }
+    bits
 }
 
 fn bits_to_bytes(bits: &[bool]) -> Vec<u8> {
