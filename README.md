@@ -5,6 +5,7 @@ The `imagehash` crate provides image hashing algorithms.
 ## Supported Algorithms
 
 - Average Hash (aHash)
+- Difference Hash (dHash)
 
 ## Usage
 
