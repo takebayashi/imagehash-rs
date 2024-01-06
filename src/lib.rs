@@ -42,6 +42,46 @@ pub struct ImageOp {
     pub filter: FilterType,
 }
 
+/// Represents a grayscale image.
+struct GrayscaleImage {
+    pixels: Vec<u8>,
+    width: usize,
+}
+
+impl GrayscaleImage {
+    /// Creates a new `GrayscaleImage` from the flattened pixels.
+    fn new(pixels: Vec<u8>, width: usize, height: usize) -> Self {
+        assert_eq!(pixels.len(), width * height);
+        GrayscaleImage { pixels, width }
+    }
+
+    /// Returns an iterator over the pixels as the specified type.
+    fn iter_pixels_as<'a, T>(&'a self) -> impl Iterator<Item = T> + 'a
+    where
+        T: From<u8> + 'a,
+    {
+        self.pixels.iter().map(|&v| T::from(v))
+    }
+
+    /// Returns an iterator over the rows as the specified type.
+    fn iter_rows_as<'a, T>(&'a self) -> impl Iterator<Item = impl Iterator<Item = T> + 'a> + 'a
+    where
+        T: From<u8> + 'a,
+    {
+        self.pixels
+            .chunks(self.width)
+            .map(|row| row.iter().map(|&v| T::from(v)))
+    }
+}
+
+impl From<image::DynamicImage> for GrayscaleImage {
+    fn from(image: image::DynamicImage) -> Self {
+        let width = image.width() as usize;
+        let height = image.height() as usize;
+        GrayscaleImage::new(image.into_luma8().into_raw(), width, height)
+    }
+}
+
 /// Provides average hash (aHash) calculation.
 pub struct AverageHash<'a> {
     op: &'a ImageOp,
@@ -81,12 +121,12 @@ impl Default for AverageHash<'_> {
 
 /// Calculates average hash (aHash) of the image.
 pub fn average_hash(image: &image::DynamicImage, op: &ImageOp) -> Vec<bool> {
-    let preprocessed = image
+    let image: GrayscaleImage = image
         .grayscale()
-        .resize_exact(op.width as u32, op.height as u32, op.filter);
-    let pixels = preprocessed.into_luma8().into_raw();
-    let average = pixels.iter().map(|i| u16::from(*i)).sum::<u16>() / (op.width * op.height) as u16;
-    pixels.iter().map(|&v| v as u16 > average).collect()
+        .resize_exact(op.width as u32, op.height as u32, op.filter)
+        .into();
+    let mean = image.iter_pixels_as::<f64>().sum::<f64>() / (op.width * op.height) as f64;
+    image.iter_pixels_as::<f64>().map(|v| v > mean).collect()
 }
 
 /// Provides difference hash (dHash) calculation.
@@ -128,19 +168,19 @@ impl Default for DifferenceHash<'_> {
 
 /// Calculates difference hash (dHash) of the image.
 pub fn difference_hash(image: &image::DynamicImage, op: &ImageOp) -> Vec<bool> {
-    let preprocessed = image
+    let image: GrayscaleImage = image
         .grayscale()
-        .resize_exact(op.width as u32, op.height as u32, op.filter);
-    let pixels = preprocessed.into_luma8().into_raw();
-    let mut bits = vec![false; ((op.width - 1) * op.height) as usize];
-    for y in 0..op.height {
-        for x in 0..op.width - 1 {
-            let offset_p = (y * op.width + x) as usize;
-            let offset_b = (y * (op.width - 1) + x) as usize;
-            bits[offset_b] = pixels[offset_p + 1] > pixels[offset_p];
-        }
-    }
-    bits
+        .resize_exact(op.width as u32, op.height as u32, op.filter)
+        .into();
+    image
+        .iter_rows_as::<u8>()
+        .flat_map(|row| {
+            row.collect::<Vec<u8>>()
+                .windows(2)
+                .map(|w| w[1] > w[0])
+                .collect::<Vec<bool>>()
+        })
+        .collect()
 }
 
 fn bits_to_bytes(bits: &[bool]) -> Vec<u8> {
