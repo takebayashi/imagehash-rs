@@ -126,7 +126,7 @@ impl AverageHash {
     /// Calculates average hash (aHash) of the image and returns as a hex string.
     pub fn hash(&self, image: &image::DynamicImage) -> String {
         let image: GrayscaleImage =
-            (self.resizer)(image, self.image_size.0, self.image_size.0).into();
+            (self.resizer)(&image.grayscale(), self.image_size.0, self.image_size.0).into();
         let bits = average_hash_core(&image, self.hash_size.0, self.hash_size.1);
         let bytes = bits_to_bytes(&bits);
         bytes_to_hex(&bytes)
@@ -200,7 +200,7 @@ impl DifferenceHash {
     /// Calculates difference hash (dHash) of the image and returns as a hex string.
     pub fn hash(&self, image: &image::DynamicImage) -> String {
         let image: GrayscaleImage =
-            (self.resizer)(image, self.image_size.0, self.image_size.1).into();
+            (self.resizer)(&image.grayscale(), self.image_size.0, self.image_size.1).into();
         let bits = difference_hash_core(&image, self.hash_size.0, self.hash_size.1);
         let bytes = bits_to_bytes(&bits);
         bytes_to_hex(&bytes)
