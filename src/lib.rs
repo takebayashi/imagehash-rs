@@ -82,10 +82,8 @@ impl From<image::DynamicImage> for GrayscaleImage {
     }
 }
 
-fn into_grayscale_and_resized(image: &image::DynamicImage, op: &ImageOp) -> image::DynamicImage {
-    image
-        .grayscale()
-        .resize_exact(op.width as u32, op.height as u32, op.filter)
+fn resize(image: &image::DynamicImage, op: &ImageOp) -> image::DynamicImage {
+    image.resize_exact(op.width as u32, op.height as u32, op.filter)
 }
 
 /// Provides average hash (aHash) calculation.
@@ -127,7 +125,7 @@ impl Default for AverageHash<'_> {
 
 /// Calculates average hash (aHash) of the image.
 pub fn average_hash(image: &image::DynamicImage, op: &ImageOp) -> Vec<bool> {
-    let image: GrayscaleImage = into_grayscale_and_resized(image, op).into();
+    let image: GrayscaleImage = resize(&image.grayscale(), op).into();
     average_hash_core(&image, 8, 8)
 }
 
@@ -180,7 +178,7 @@ impl Default for DifferenceHash<'_> {
 
 /// Calculates difference hash (dHash) of the image.
 pub fn difference_hash(image: &image::DynamicImage, op: &ImageOp) -> Vec<bool> {
-    let image: GrayscaleImage = into_grayscale_and_resized(image, op).into();
+    let image: GrayscaleImage = resize(&image.grayscale(), op).into();
     difference_hash_core(&image, 8, 8)
 }
 
