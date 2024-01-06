@@ -82,6 +82,10 @@ impl From<image::DynamicImage> for GrayscaleImage {
     }
 }
 
+fn resize(image: &image::DynamicImage, op: &ImageOp) -> image::DynamicImage {
+    image.resize_exact(op.width as u32, op.height as u32, op.filter)
+}
+
 /// Provides average hash (aHash) calculation.
 pub struct AverageHash<'a> {
     op: &'a ImageOp,
@@ -121,11 +125,17 @@ impl Default for AverageHash<'_> {
 
 /// Calculates average hash (aHash) of the image.
 pub fn average_hash(image: &image::DynamicImage, op: &ImageOp) -> Vec<bool> {
-    let image: GrayscaleImage = image
-        .grayscale()
-        .resize_exact(op.width as u32, op.height as u32, op.filter)
-        .into();
-    let mean = image.iter_pixels_as::<f64>().sum::<f64>() / (op.width * op.height) as f64;
+    let image: GrayscaleImage = resize(&image.grayscale(), op).into();
+    average_hash_core(&image, 8, 8)
+}
+
+fn average_hash_core(image: &GrayscaleImage, hash_width: usize, hash_height: usize) -> Vec<bool> {
+    let total: f64 = image
+        .iter_rows_as::<f64>()
+        .take(hash_height)
+        .flat_map(|row| row.take(hash_width))
+        .sum();
+    let mean = total / (hash_width * hash_height) as f64;
     image.iter_pixels_as::<f64>().map(|v| v > mean).collect()
 }
 
@@ -168,15 +178,22 @@ impl Default for DifferenceHash<'_> {
 
 /// Calculates difference hash (dHash) of the image.
 pub fn difference_hash(image: &image::DynamicImage, op: &ImageOp) -> Vec<bool> {
-    let image: GrayscaleImage = image
-        .grayscale()
-        .resize_exact(op.width as u32, op.height as u32, op.filter)
-        .into();
+    let image: GrayscaleImage = resize(&image.grayscale(), op).into();
+    difference_hash_core(&image, 8, 8)
+}
+
+fn difference_hash_core(
+    image: &GrayscaleImage,
+    hash_width: usize,
+    hash_height: usize,
+) -> Vec<bool> {
     image
         .iter_rows_as::<u8>()
+        .take(hash_height)
         .flat_map(|row| {
             row.collect::<Vec<u8>>()
                 .windows(2)
+                .take(hash_width)
                 .map(|w| w[1] > w[0])
                 .collect::<Vec<bool>>()
         })
