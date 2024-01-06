@@ -181,7 +181,7 @@ impl Default for DifferenceHash<'_> {
 /// Calculates difference hash (dHash) of the image.
 pub fn difference_hash(image: &image::DynamicImage, op: &ImageOp) -> Vec<bool> {
     let image: GrayscaleImage = into_grayscale_and_resized(image, op).into();
-    difference_hash_core(&image, 9, 8)
+    difference_hash_core(&image, 8, 8)
 }
 
 fn difference_hash_core(
@@ -193,9 +193,9 @@ fn difference_hash_core(
         .iter_rows_as::<u8>()
         .take(hash_height)
         .flat_map(|row| {
-            row.take(hash_width)
-                .collect::<Vec<u8>>()
+            row.collect::<Vec<u8>>()
                 .windows(2)
+                .take(hash_width)
                 .map(|w| w[1] > w[0])
                 .collect::<Vec<bool>>()
         })
