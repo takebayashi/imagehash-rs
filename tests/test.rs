@@ -41,3 +41,17 @@ fn test_difference_hash_2() {
     let result = DifferenceHash::new().hash(&dynimg);
     assert_eq!(result.to_string(), "ededcc860b0c19b6");
 }
+
+#[test]
+fn test_perceptual_hash_1() {
+    let dynimg = image::open("tests/1.jpg").unwrap();
+    let result = PerceptualHash::new().hash(&dynimg);
+    assert_eq!(result.to_string(), "2f2fafafafafafaf");
+}
+
+#[test]
+fn test_perceptual_hash_2() {
+    let dynimg = image::open("tests/2.jpg").unwrap();
+    let result = PerceptualHash::new().hash(&dynimg);
+    assert_eq!(result.to_string(), "3f3f3f4c4c4c4c4c");
+}

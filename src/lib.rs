@@ -18,6 +18,7 @@
 //!
 //! - Average Hash (aHash)
 //! - Difference Hash (dHash)
+//! - Perceptual Hash (pHash)
 //!
 //! ## Usage
 //!
@@ -83,13 +84,18 @@ impl std::fmt::Display for Hash {
 struct GrayscaleImage {
     pixels: Vec<u8>,
     width: usize,
+    height: usize,
 }
 
 impl GrayscaleImage {
     /// Creates a new `GrayscaleImage` from the flattened pixels.
     fn new(pixels: Vec<u8>, width: usize, height: usize) -> Self {
         assert_eq!(pixels.len(), width * height);
-        GrayscaleImage { pixels, width }
+        GrayscaleImage {
+            pixels,
+            width,
+            height,
+        }
     }
 
     /// Returns an iterator over the pixels as the specified type.
@@ -278,4 +284,123 @@ fn difference_hash_core(image: &GrayscaleImage, hash_width: usize, hash_height: 
         })
         .collect::<Vec<bool>>()
         .into()
+}
+
+/// Provides perceptual hash (pHash) calculation.
+pub struct PerceptualHash {
+    image_size: (usize, usize),
+    hash_size: (usize, usize),
+    resizer: fn(&image::DynamicImage, usize, usize) -> image::DynamicImage,
+}
+
+impl PerceptualHash {
+    /// Creates a new `PerceptualHasher` with default parameters.
+    pub fn new() -> Self {
+        PerceptualHash::default()
+    }
+
+    /// Constructs a hasher with the image size.
+    pub fn with_image_size(self, width: usize, height: usize) -> Self {
+        PerceptualHash {
+            image_size: (width, height),
+            ..self
+        }
+    }
+
+    /// Constructs a hasher with the hash size.
+    pub fn with_hash_size(self, width: usize, height: usize) -> Self {
+        PerceptualHash {
+            hash_size: (width, height),
+            ..self
+        }
+    }
+
+    /// Constructs a hasher with the resizer function.
+    pub fn with_resizer(
+        self,
+        resizer: fn(&image::DynamicImage, usize, usize) -> image::DynamicImage,
+    ) -> Self {
+        PerceptualHash { resizer, ..self }
+    }
+
+    /// Calculates perceptual hash (pHash) of the image and returns as a hex string.
+    pub fn hash(&self, image: &image::DynamicImage) -> Hash {
+        let image: GrayscaleImage =
+            (self.resizer)(&image.grayscale(), self.image_size.0, self.image_size.1).into();
+        perceptual_hash_core(&image, self.hash_size.0, self.hash_size.1)
+    }
+}
+
+impl Default for PerceptualHash {
+    /// Creates a new `PerceptualHasher` with default parameters.
+    fn default() -> Self {
+        PerceptualHash {
+            image_size: (32, 32),
+            hash_size: (8, 8),
+            resizer: resize,
+        }
+    }
+}
+
+/// Calculates perceptual hash (pHash) of the image.
+pub fn perceptual_hash(image: &image::DynamicImage) -> Hash {
+    let image: GrayscaleImage = resize(&image.grayscale(), 32, 32).into();
+    perceptual_hash_core(&image, 8, 8)
+}
+
+fn perceptual_hash_core(image: &GrayscaleImage, hash_width: usize, hash_height: usize) -> Hash {
+    let mut dct_rows = vec![0.0; image.width * image.height];
+    for (y, row) in image.iter_rows_as::<f64>().enumerate() {
+        let dct = dct2(&row.collect::<Vec<_>>());
+        for (x, v) in dct.iter().enumerate() {
+            dct_rows[y * image.width + x] = *v;
+        }
+    }
+    let low_freqs: Vec<f64> = dct_rows
+        .chunks(image.width)
+        .take(hash_height)
+        .flat_map(|row| {
+            row.iter()
+                .skip(1)
+                .take(hash_width)
+                .copied()
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    let mean = low_freqs.iter().sum::<f64>() / (hash_width * hash_height) as f64;
+    low_freqs
+        .iter()
+        .map(|v| *v > mean)
+        .collect::<Vec<bool>>()
+        .into()
+}
+
+fn dct2(input: &[f64]) -> Vec<f64> {
+    // scipy-style dct-ii
+    let n = input.len();
+    (0..n)
+        .map(|k| {
+            input
+                .iter()
+                .enumerate()
+                .map(|(i, xi)| {
+                    2.0_f64
+                        * xi
+                        * (std::f64::consts::PI * k as f64 * (2 * i + 1) as f64 / (2 * n) as f64)
+                            .cos()
+                })
+                .sum::<f64>()
+        })
+        .collect()
+}
+
+#[test]
+fn test_dct2() {
+    let input = vec![0., 1., 2.];
+    let actual = dct2(&input);
+    let expected = [6.00000000e+00, -3.46410162e+00, -4.44089210e-16];
+    assert_eq!(actual.len(), expected.len());
+    for (a, e) in actual.iter().zip(expected.iter()) {
+        assert!((a - e).abs() < 1e-8);
+    }
 }
