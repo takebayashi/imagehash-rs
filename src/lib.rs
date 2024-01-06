@@ -82,50 +82,71 @@ impl From<image::DynamicImage> for GrayscaleImage {
     }
 }
 
-fn resize(image: &image::DynamicImage, op: &ImageOp) -> image::DynamicImage {
-    image.resize_exact(op.width as u32, op.height as u32, op.filter)
+fn resize(image: &image::DynamicImage, width: usize, height: usize) -> image::DynamicImage {
+    image.resize_exact(width as u32, height as u32, FilterType::Lanczos3)
 }
 
 /// Provides average hash (aHash) calculation.
-pub struct AverageHash<'a> {
-    op: &'a ImageOp,
+pub struct AverageHash {
+    image_size: (usize, usize),
+    hash_size: (usize, usize),
+    resizer: fn(&image::DynamicImage, usize, usize) -> image::DynamicImage,
 }
 
-impl<'a> AverageHash<'a> {
+impl AverageHash {
     /// Creates a new `AverageHasher` with default parameters.
     pub fn new() -> Self {
         AverageHash::default()
     }
 
-    /// Creates a new `AverageHasher` with the specified parameters.
-    pub fn with_op(op: &'a ImageOp) -> Self {
-        AverageHash { op }
+    /// Returns a new `AverageHasher` with the image size.
+    pub fn with_image_size(self, width: usize, height: usize) -> Self {
+        AverageHash {
+            image_size: (width, height),
+            ..self
+        }
+    }
+
+    /// Returns a new `AverageHasher` with the hash size.
+    pub fn with_hash_size(self, width: usize, height: usize) -> Self {
+        AverageHash {
+            hash_size: (width, height),
+            ..self
+        }
+    }
+
+    /// Returns a new `AverageHasher` with the resizer function.
+    pub fn with_resizer(
+        self,
+        resizer: fn(&image::DynamicImage, usize, usize) -> image::DynamicImage,
+    ) -> Self {
+        AverageHash { resizer, ..self }
     }
 
     /// Calculates average hash (aHash) of the image and returns as a hex string.
     pub fn hash(&self, image: &image::DynamicImage) -> String {
-        let bits = average_hash(image, self.op);
+        let image: GrayscaleImage =
+            (self.resizer)(image, self.image_size.0, self.image_size.0).into();
+        let bits = average_hash_core(&image, self.hash_size.0, self.hash_size.1);
         let bytes = bits_to_bytes(&bits);
         bytes_to_hex(&bytes)
     }
 }
 
-impl Default for AverageHash<'_> {
+impl Default for AverageHash {
     /// Creates a new `AverageHasher` with default parameters.
     fn default() -> Self {
         AverageHash {
-            op: &ImageOp {
-                width: 8,
-                height: 8,
-                filter: FilterType::Lanczos3,
-            },
+            image_size: (8, 8),
+            hash_size: (8, 8),
+            resizer: resize,
         }
     }
 }
 
 /// Calculates average hash (aHash) of the image.
-pub fn average_hash(image: &image::DynamicImage, op: &ImageOp) -> Vec<bool> {
-    let image: GrayscaleImage = resize(&image.grayscale(), op).into();
+pub fn average_hash(image: &image::DynamicImage) -> Vec<bool> {
+    let image: GrayscaleImage = resize(&image.grayscale(), 8, 8).into();
     average_hash_core(&image, 8, 8)
 }
 
@@ -140,45 +161,66 @@ fn average_hash_core(image: &GrayscaleImage, hash_width: usize, hash_height: usi
 }
 
 /// Provides difference hash (dHash) calculation.
-pub struct DifferenceHash<'a> {
-    op: &'a ImageOp,
+pub struct DifferenceHash {
+    image_size: (usize, usize),
+    hash_size: (usize, usize),
+    resizer: fn(&image::DynamicImage, usize, usize) -> image::DynamicImage,
 }
 
-impl<'a> DifferenceHash<'a> {
+impl DifferenceHash {
     /// Creates a new `DifferenceHasher` with default parameters.
     pub fn new() -> Self {
         DifferenceHash::default()
     }
 
-    /// Creates a new `DifferenceHasher` with the specified parameters.
-    pub fn with_op(op: &'a ImageOp) -> Self {
-        DifferenceHash { op }
+    /// Returns a new `DifferenceHasher` with the image size.
+    pub fn with_image_size(self, width: usize, height: usize) -> Self {
+        DifferenceHash {
+            image_size: (width, height),
+            ..self
+        }
+    }
+
+    /// Returns a new `DifferenceHasher` with the hash size.
+    pub fn with_hash_size(self, width: usize, height: usize) -> Self {
+        DifferenceHash {
+            hash_size: (width, height),
+            ..self
+        }
+    }
+
+    /// Returns a new `DifferenceHasher` with the resizer function.
+    pub fn with_resizer(
+        self,
+        resizer: fn(&image::DynamicImage, usize, usize) -> image::DynamicImage,
+    ) -> Self {
+        DifferenceHash { resizer, ..self }
     }
 
     /// Calculates difference hash (dHash) of the image and returns as a hex string.
     pub fn hash(&self, image: &image::DynamicImage) -> String {
-        let bits = difference_hash(image, self.op);
+        let image: GrayscaleImage =
+            (self.resizer)(image, self.image_size.0, self.image_size.1).into();
+        let bits = difference_hash_core(&image, self.hash_size.0, self.hash_size.1);
         let bytes = bits_to_bytes(&bits);
         bytes_to_hex(&bytes)
     }
 }
 
-impl Default for DifferenceHash<'_> {
+impl Default for DifferenceHash {
     /// Creates a new `DifferenceHasher` with default parameters.
     fn default() -> Self {
         DifferenceHash {
-            op: &ImageOp {
-                width: 9,
-                height: 8,
-                filter: FilterType::Lanczos3,
-            },
+            image_size: (9, 8),
+            hash_size: (8, 8),
+            resizer: resize,
         }
     }
 }
 
 /// Calculates difference hash (dHash) of the image.
-pub fn difference_hash(image: &image::DynamicImage, op: &ImageOp) -> Vec<bool> {
-    let image: GrayscaleImage = resize(&image.grayscale(), op).into();
+pub fn difference_hash(image: &image::DynamicImage) -> Vec<bool> {
+    let image: GrayscaleImage = resize(&image.grayscale(), 9, 8).into();
     difference_hash_core(&image, 8, 8)
 }
 
