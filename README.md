@@ -6,6 +6,7 @@ The `imagehash` crate provides image hashing algorithms.
 
 - Average Hash (aHash)
 - Difference Hash (dHash)
+- Perceptual Hash (pHash)
 
 ## Usage
 

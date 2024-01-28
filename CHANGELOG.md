@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.3.0] - 2024-01-28
+
+### Added
+
+- Perceptual hash (pHash) algorithm is implemented.
+
+### Changed
+
+- Hash functions now return `Hash` instead of `Vec<Bool>` (breaking changes).
+
+[0.3.0]: https://github.com/takebayashi/imagehash-rs/compare/v0.2.0...v0.3.0
+
 ## [0.2.0] - 2024-01-03
 
 ### Added
